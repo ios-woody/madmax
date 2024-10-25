@@ -66,8 +66,8 @@ struct TradeItem: Decodable, Equatable {
 struct OrderBookItem: Decodable, Hashable {
     let id: Int64
     let side: Side
-    let size: Double?
-    let price: Double
+    let size: Decimal?
+    let price: Decimal
 }
 
 enum Side: String, Decodable {

@@ -10,8 +10,7 @@ import Foundation
 enum WebSocketError: Error {
     case invalidURL
 }
-
-enum WebSocketState {
+enum State {
     case notConnected
     case connected
     case disconnected
@@ -28,7 +27,7 @@ final actor WebSocketController: NSObject {
         didSet { oldValue?.cancel(with: .goingAway, reason: nil) }
     }
 
-    private var state: WebSocketState = .notConnected
+    private var state: State = .notConnected
 
     init(orderData: OrderData) {
         self.orderData = orderData
@@ -46,21 +45,10 @@ final actor WebSocketController: NSObject {
         send(message: requestString)
         receive { [orderData] string, data in
             Task {
-                guard let string,
-                      let data = string.data(using: .utf8)
-                else { return }
-                
-                do {
-                    let responseData = try JSONDecoder().decode(Response.self, from: data)
-                    let items = responseData.data.compactMap { (responseItem: ResponseItem) -> OrderBookItem? in
-                        guard case let .orderBook(item) = responseItem else { return nil }
-                        return item
-                    }
-                    await orderData?.storeData(orderBookItems: items)
-                } catch {
-
-                }
+                let string = String(string?.prefix(100) ?? "")
+                await orderData?.storeData(string: string)
             }
+            //  OrderData 처리
         }
     }
 
@@ -103,9 +91,29 @@ final actor WebSocketController: NSObject {
         self.delegate = nil
     }
 
+//    func receive() async -> (String?, Data?) {
+//        return await withCheckedContinuation { continuation in
+//            webSocketTask?.receive(completionHandler: { result in
+//                switch result {
+//                case let .success(message):
+//                    switch message {
+//                    case let .string(string):
+//                        continuation.resume(returning: (string, nil))
+//                    case let .data(data):
+//                        continuation.resume(returning: (nil, data))
+//                    @unknown default:
+//                        continuation.resume(returning: (nil, nil))
+//                    }
+//                case let .failure(error):
+//                    continuation.resume(returning: (nil, nil))
+//                }
+//            })
+//        }
+//
+//    }
+
     func receive(onReceive: @escaping (String?, Data?) -> ())  {
-        self.webSocketTask?.receive(completionHandler: { [weak self] result in
-            guard let self else { return }
+        self.webSocketTask?.receive(completionHandler: { result in
             switch result {
             case let .success(message):
                 switch message {
